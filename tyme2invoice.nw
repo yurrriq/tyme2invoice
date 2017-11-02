@@ -206,6 +206,7 @@ tangle = notangle -R'$@' $1 $< >$@
 all: \
 Makefile \
 .envrc \
+.gitattributes \
 .gitignore \
 README.md \
 ChangeLog.md \
@@ -239,6 +240,7 @@ Makefile: tyme2invoice.nw
 
 
 .envrc \
+.gitattributes \
 .gitignore \
 ChangeLog.md \
 README.md \
@@ -298,6 +300,13 @@ stability: gamma
 
 <<.envrc>>=
 PATH_add ./build/bin
+@
+
+
+\subsection{.gitattributes}
+
+<<.gitattributes>>=
+resources/invoice.cls linguist-vendored
 @
 
 

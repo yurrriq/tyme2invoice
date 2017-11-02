@@ -23,6 +23,7 @@ tangle = notangle -R'$@' $1 $< >$@
 all: \
 Makefile \
 .envrc \
+.gitattributes \
 .gitignore \
 README.md \
 ChangeLog.md \
@@ -56,6 +57,7 @@ Makefile: tyme2invoice.nw
 
 
 .envrc \
+.gitattributes \
 .gitignore \
 ChangeLog.md \
 README.md \
