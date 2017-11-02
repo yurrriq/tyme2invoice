@@ -1,0 +1,612 @@
+% -*- mode: ess-noweb; ess-noweb-default-code-mode: fundamental-mode -*-
+\documentclass[nobib]{tufte-handout}
+\usepackage{noweb}
+
+\usepackage{color}
+% https://commons.wikimedia.org/wiki/File:Erlang_logo.svg
+\definecolor{ErlangRed}{HTML}{A90533}
+
+\usepackage{hyperref}
+\hypersetup{
+  bookmarks=true,
+  pdffitwindow=true,
+  pdfstartview={FitH},
+  pdftitle={tyme2invoice},
+  pdfauthor={Eric Bailey <eric@ericb.me>},
+  pdfkeywords={time tracking, invoicing, tyme 2, literate programming, noweb},
+  colorlinks=true,
+  linkcolor=ErlangRed,
+  urlcolor=ErlangRed
+}
+
+\usepackage{amsmath}
+\usepackage{amssymb}
+
+\usepackage{minted}
+
+% NOTE: Use Tufte instead of noweb page style.
+% \pagestyle{noweb}
+% NOTE: Use shift option for wide code.
+\noweboptions{smallcode,shortxref,webnumbering,english}
+
+\title{
+  {\tt tyme2invoice}
+  \thanks{
+    {\small Generate pretty invoices from
+      \href{http://tyme-app.com/mac-2/}{Tyme 2} logs.}
+  }
+}
+\author{Eric Bailey}
+
+% \date{January 16, 2017}
+
+\newcommand{\stylehook}{\marginpar{\raggedright\sl Style hook}}
+
+\newmintinline[fish]{fish}{}
+\newmintinline[hs]{haskell}{}
+\newmintinline[txt]{text}{}
+
+\begin{document}
+\maketitle
+@
+
+\begin{abstract}
+  TODO: abstract
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+<<README.md>>=
+<!-- -*- mode: markdown -*- -->
+# tyme2invoice
+
+*Generate pretty invoices from [Tyme 2][] logs.*
+
+## License
+
+*tyme2invoice* is licensed under [the BSD 3-clause license][BSD-3].
+
+
+<!-- Named Links -->
+[Tyme 2]: http://tyme-app.com/mac-2/
+[BSD-3]: https://tldrlegal.com/license/bsd-3-clause-license-%28revised%29
+@
+
+\section{Code}
+
+\subsection{Library}
+
+<<src/Data/Tyme.hs>>=
+module Data.Tyme (
+  module Data.Tyme.Types
+  ) where
+
+
+import           Data.Tyme.Types
+@
+
+
+\subsection{Types}
+
+<<src/Data/Tyme/Types.hs>>=
+{-# LANGUAGE DeriveGeneric     #-}
+{-# LANGUAGE OverloadedStrings #-}
+
+
+module Data.Tyme.Types where
+
+
+import           Data.Aeson
+import           Data.Text
+import           GHC.Generics
+
+
+data `Time =
+  Time { notes           :: Text
+       , rate            :: Double
+       , timeEnd         :: Text -- TODO: refine this type
+       , category        :: Text
+       , roundingMinutes :: Int
+       , task            :: Text
+       , roundingMethod  :: Text
+       , timeStart       :: Text
+       , duration        :: Int
+       , sum             :: Double
+       , subtask         :: Text
+       , project         :: Text
+       }
+
+
+instance ToJSON Time where
+  toJSON t =
+    object [ "notes" .= notes t ]
+
+
+instance FromJSON Time where
+  parseJSON (Object v) = Time <$>
+                         v .: "notes" <*>
+                         v .: "rate" <*>
+                         v .: "timeEnd" <*>
+                         v .: "category" <*>
+                         v .: "roundingMinutes" <*>
+                         v .: "task" <*>
+                         v .: "roundingMethod" <*>
+                         v .: "timeStart" <*>
+                         v .: "duration" <*>
+                         v .: "sum" <*>
+                         v .: "subtask" <*>
+                         v .: "project"
+  -- parseJSON _ = empty
+@
+
+\subsection{The main executable}
+
+<<app/Main.hs>>=
+module Main where
+
+
+`main :: IO ()
+main = putStrLn "Hello, Haskell!"
+@
+
+\subsection{Setup}
+
+<<Setup.hs>>=
+-- -*- mode: haskell -*-
+
+
+import           Distribution.Simple
+
+
+main :: IO ()
+main = defaultMain
+@
+
+\section{Miscellanea}
+
+\subsection{Change Log}
+
+<<ChangeLog.md>>=
+<!-- -*- mode: markdown -*- -->
+# Revision history for tyme2invoice
+
+## 0.0.0.1  -- 2017-01-16
+
+* First version. Released on an unsuspecting world.
+@
+
+
+\subsection{Makefile}
+
+This is pretty meta.
+<<Makefile>>=
+# -*- mode: makefile -*-
+
+
+LIB_SRCS := \
+	Data/Tyme.hs \
+	Data/Tyme/Types.hs
+
+
+APP_SRCS := Main.hs
+
+
+tangle = notangle -R'$@' $1 $< >$@
+
+
+.SUFFIXES: .nw .pdf .tex
+.nw.tex:
+	noweave -filter btdefn -n -delay -index $< >$@
+.tex.pdf:
+	latexmk -shell-escape -pdf $<
+	latexmk -c $<
+
+
+all: \
+Makefile \
+.envrc \
+.gitignore \
+README.md \
+ChangeLog.md \
+LICENSE \
+build \
+tyme2invoice.pdf
+
+
+build: \
+$(addprefix src/,${LIB_SRCS}) \
+$(addprefix app/,${APP_SRCS}) \
+Setup.hs \
+package.yaml \
+shell.nix
+	nix-build $(lastword $^) -o $@
+
+
+.PHONY: clean
+clean:
+	find . \
+	-type f \
+	\! -path './.git*' \
+	\! -name '*.nw' \
+	\! -name invoice.cls \
+	\! -name Makefile \
+	-delete
+
+
+Makefile: tyme2invoice.nw
+	$(call tangle,-t2)
+
+
+.envrc \
+.gitignore \
+ChangeLog.md \
+README.md \
+LICENSE \
+package.yaml: \
+tyme2invoice.nw
+	$(call tangle,)
+
+
+tyme2invoice.cabal: package.yaml
+	nix-shell -p haskellPackages.hpack --run hpack
+
+
+shell.nix: tyme2invoice.cabal
+	nix-shell -p haskellPackages.cabal2nix --run 'cabal2nix --shell . >$@'
+
+
+%.hs: tyme2invoice.nw
+	$(call tangle,-filter btdefn)
+@
+
+\subsection{package.yaml}
+
+<<package.yaml>>=
+# -*- mode: yaml -*-
+name: tyme2invoice
+version: '0.0.0.1'
+synopsis: Generate pretty invoices from Tyme 2 logs.
+category: Data
+author: Eric Bailey
+maintainer: eric@ericb.me
+copyright: (c) 2017 Eric Bailey
+license: BSD3
+homepage: https://github.com/yurrriq/tyme2invoice
+bug-reports: https://github.com/yurrriq/tyme2invoice/issues
+extra-source-files:
+- ChangeLog.md
+- README.md
+library:
+  dependencies:
+  - base # >=4.9 && <4.10
+  - aeson # >=0.7.0.5 && <0.12
+  - optparse-applicative >=0.13.0 && <0.14
+  - pandoc # >=1.17.1 && <1.18
+  - text >=1.2 && <1.3
+  source-dirs: src
+executable:
+    main: Main.hs
+    dependencies:
+    - base
+    - tyme2invoice
+    source-dirs: app
+stability: gamma
+@
+
+\subsection{.envrc}
+
+<<.envrc>>=
+PATH_add ./build/bin
+@
+
+
+\subsection{.gitignore}
+
+Ignore \txt{/build} (\fish{nix-build} artifact).
+<<.gitignore>>=
+/build
+
+
+@
+
+Ignore Haskell stuff.
+<<.gitignore>>=
+# Haskell
+
+dist
+dist-*
+cabal-dev
+*.o
+*.hi
+*.chi
+*.chs.h
+*.dyn_o
+*.dyn_hi
+.hpc
+.hsenv
+.cabal-sandbox/
+cabal.sandbox.config
+*.prof
+*.aux
+*.hp
+*.eventlog
+.stack-work/
+cabal.project.local
+.HTF/
+
+
+@
+
+Ignore \LaTeX{} stuff.
+<<.gitignore>>=
+# LaTeX
+
+## Core latex/pdflatex auxiliary files:
+*.aux
+*.lof
+*.log
+*.lot
+*.fls
+*.out
+*.toc
+*.fmt
+*.fot
+*.cb
+*.cb2
+
+## Intermediate documents:
+*.dvi
+*-converted-to.*
+# these rules might exclude image files for figures etc.
+# *.ps
+# *.eps
+# *.pdf
+
+## Generated if empty string is given at "Please type another file name for output:"
+.pdf
+
+## Bibliography auxiliary files (bibtex/biblatex/biber):
+*.bbl
+*.bcf
+*.blg
+*-blx.aux
+*-blx.bib
+*.brf
+*.run.xml
+
+## Build tool auxiliary files:
+*.fdb_latexmk
+*.synctex
+*.synctex(busy)
+*.synctex.gz
+*.synctex.gz(busy)
+*.pdfsync
+
+## Auxiliary and intermediate files from other packages:
+# algorithms
+*.alg
+*.loa
+
+# achemso
+acs-*.bib
+
+# amsthm
+*.thm
+
+# beamer
+*.nav
+*.pre
+*.snm
+*.vrb
+
+# changes
+*.soc
+
+# cprotect
+*.cpt
+
+# elsarticle (documentclass of Elsevier journals)
+*.spl
+
+# endnotes
+*.ent
+
+# fixme
+*.lox
+
+# feynmf/feynmp
+*.mf
+*.mp
+*.t[1-9]
+*.t[1-9][0-9]
+*.tfm
+*.[1-9]
+*.[1-9][0-9]
+
+#(r)(e)ledmac/(r)(e)ledpar
+*.end
+*.?end
+*.[1-9]
+*.[1-9][0-9]
+*.[1-9][0-9][0-9]
+*.[1-9]R
+*.[1-9][0-9]R
+*.[1-9][0-9][0-9]R
+*.eledsec[1-9]
+*.eledsec[1-9]R
+*.eledsec[1-9][0-9]
+*.eledsec[1-9][0-9]R
+*.eledsec[1-9][0-9][0-9]
+*.eledsec[1-9][0-9][0-9]R
+
+# glossaries
+*.acn
+*.acr
+*.glg
+*.glo
+*.gls
+*.glsdefs
+
+# gnuplottex
+*-gnuplottex-*
+
+# gregoriotex
+*.gaux
+*.gtex
+
+# hyperref
+*.brf
+
+# knitr
+*-concordance.tex
+# TODO Comment the next line if you want to keep your tikz graphics files
+*.tikz
+*-tikzDictionary
+
+# listings
+*.lol
+
+# makeidx
+*.idx
+*.ilg
+*.ind
+*.ist
+
+# minitoc
+*.maf
+*.mlf
+*.mlt
+*.mtc[0-9]*
+
+# minted
+_minted*
+*.pyg
+
+# morewrites
+*.mw
+
+# mylatexformat
+*.fmt
+
+# nomencl
+*.nlo
+
+# pax
+*.pax
+
+# sagetex
+*.sagetex.sage
+*.sagetex.py
+*.sagetex.scmd
+
+# scrwfile
+*.wrt
+
+# sympy
+*.sout
+*.sympy
+sympy-plots-for-*.tex/
+
+# pdfcomment
+*.upa
+*.upb
+
+# pythontex
+*.pytxcode
+pythontex-files-*/
+
+# thmtools
+*.loe
+
+# TikZ & PGF
+*.dpth
+*.md5
+*.auxlock
+
+# todonotes
+*.tdo
+
+# easy-todo
+*.lod
+
+# xindy
+*.xdy
+
+# xypic precompiled matrices
+*.xyc
+
+# endfloat
+*.ttt
+*.fff
+
+# Latexian
+TSWLatexianTemp*
+
+## Editors:
+# WinEdt
+*.bak
+*.sav
+
+# Texpad
+.texpadtmp
+
+# Kile
+*.backup
+
+# KBibTeX
+*~[0-9]*
+
+# auto folder when using emacs and auctex
+/auto/*
+
+# expex forward references with \gathertags
+*-tags.tex
+@
+
+\section{License}
+
+<<LICENSE>>=
+Copyright (c) 2017, Eric Bailey
+
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+    * Redistributions of source code must retain the above copyright
+      notice, this list of conditions and the following disclaimer.
+
+    * Redistributions in binary form must reproduce the above
+      copyright notice, this list of conditions and the following
+      disclaimer in the documentation and/or other materials provided
+      with the distribution.
+
+    * Neither the name of Eric Bailey nor the names of other
+      contributors may be used to endorse or promote products derived
+      from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+@
+
+\section{Chunks}
+\nowebchunks
+
+\section{Index}
+\nowebindex
+
+% \nobibliography{}
+% \bibliography{tyme2invoice}
+% \bibliographystyle{plainnat}
+
+\end{document}

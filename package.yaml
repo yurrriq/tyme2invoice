@@ -1,0 +1,29 @@
+# -*- mode: yaml -*-
+name: tyme2invoice
+version: '0.0.0.1'
+synopsis: Generate pretty invoices from Tyme 2 logs.
+category: Data
+author: Eric Bailey
+maintainer: eric@ericb.me
+copyright: (c) 2017 Eric Bailey
+license: BSD3
+homepage: https://github.com/yurrriq/tyme2invoice
+bug-reports: https://github.com/yurrriq/tyme2invoice/issues
+extra-source-files:
+- ChangeLog.md
+- README.md
+library:
+  dependencies:
+  - base # >=4.9 && <4.10
+  - aeson # >=0.7.0.5 && <0.12
+  - optparse-applicative >=0.13.0 && <0.14
+  - pandoc # >=1.17.1 && <1.18
+  - text >=1.2 && <1.3
+  source-dirs: src
+executable:
+    main: Main.hs
+    dependencies:
+    - base
+    - tyme2invoice
+    source-dirs: app
+stability: gamma

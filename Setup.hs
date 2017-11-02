@@ -1,2 +1,8 @@
-import Distribution.Simple
+-- -*- mode: haskell -*-
+
+
+import           Distribution.Simple
+
+
+main :: IO ()
 main = defaultMain

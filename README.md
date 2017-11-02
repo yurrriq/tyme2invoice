@@ -1,10 +1,11 @@
+<!-- -*- mode: markdown -*- -->
 # tyme2invoice
 
 *Generate pretty invoices from [Tyme 2][] logs.*
 
 ## License
 
-`tyme2invoice` is licensed under [the BSD 3-clause license][BSD-3].
+*tyme2invoice* is licensed under [the BSD 3-clause license][BSD-3].
 
 
 <!-- Named Links -->
